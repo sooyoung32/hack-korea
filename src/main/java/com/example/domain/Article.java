@@ -37,6 +37,8 @@ public class Article {
     private Long hitCount;
     
     private Date createDate;
+    
+    private Date modifyDate;
 
 	
 }
