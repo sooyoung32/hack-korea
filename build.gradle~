@@ -1,0 +1,116 @@
+buildscript {
+    ext {
+        springBootVersion = '1.3.0.RELEASE'
+    }
+    repositories {
+        mavenLocal()
+        jcenter()
+        maven { url 'http://repo.spring.io/plugins-release' }
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath("jp.classmethod.aws:gradle-aws-plugin:0.+")
+    }
+}
+
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'spring-boot'
+
+defaultTasks 'bootRun'
+
+jar {
+    baseName = 'demo'
+    version = '0.0.1-SNAPSHOT'
+}
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven { url "https://repo.spring.io/snapshot" }
+    maven { url "https://repo.spring.io/milestone" }
+}
+
+dependencies {
+    compile('org.springframework.boot:spring-boot-devtools')
+    compile('org.springframework.boot:spring-boot-starter-web')
+    compile('org.springframework.boot:spring-boot-starter-data-jpa')
+    // compile('org.springframework.cloud:spring-cloud-starter-aws-jdbc')
+
+    compile "org.projectlombok:lombok:1.16.6"
+
+    compile('mysql:mysql-connector-java')
+
+    testCompile('org.springframework.boot:spring-boot-starter-test') 
+}
+
+dependencyManagement {
+	imports { 
+		mavenBom "org.springframework.cloud:spring-cloud-starter-parent:Brixton.M3" 
+	}
+}
+
+
+eclipse {
+    classpath {
+         containers.remove('org.eclipse.jdt.launching.JRE_CONTAINER')
+         containers 'org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8'
+    }
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.9'
+}
+
+/****************************************
+* AWS RDS                               *
+*****************************************/
+apply plugin: 'jp.classmethod.aws.rds'
+
+// You can overwrite default credentials and region settings like this:
+aws {
+    profileName = 'sooyoung-admin'
+    region = 'ap-northeast-1'
+}
+
+task migrateDBInstance(type: jp.classmethod.aws.gradle.rds.AmazonRDSMigrateDBInstanceTask) {
+    dbInstanceIdentifier = "hack-korea"
+    allocatedStorage = 5
+    dbInstanceClass = "db.t2.micro"
+    engine = "MySQL"
+    masterUsername = "admin"
+    masterUserPassword = "admin1234"
+    multiAZ = false
+    publiclyAccessible = true
+
+    vpcSecurityGroupIds = [ "sg-b9f1f1dc" ] //
+    dbSubnetGroupName = "default"
+}
+
+task rebootDBInstance(type: jp.classmethod.aws.gradle.rds.AmazonRDSRebootDBInstanceTask) {
+    dbInstanceIdentifier = "hack-korea"
+}
+
+task deleteDBInstance(type: jp.classmethod.aws.gradle.rds.AmazonRDSDeleteDBInstanceTask) {
+    dbInstanceIdentifier = "hack-korea"
+    skipFinalSnapshot = true
+}
+
+task waitDBInstanceStatus(type: jp.classmethod.aws.gradle.rds.AmazonRDSWaitInstanceStatusTask) {
+    dbInstanceIdentifier = "hack-korea"
+    successStatuses = [ "available", "terminated" ]
+    waitStatuses = [
+            "backing-up",
+            "creating",
+            "deleting",
+            "modifying",
+            "rebooting",
+            "renaming",
+            "resetting-master-credentials"
+    ]
+    mustRunAfter migrateDBInstance, rebootDBInstance, deleteDBInstance
+}

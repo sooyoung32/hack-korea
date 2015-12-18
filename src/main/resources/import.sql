@@ -1,0 +1,1 @@
+insert into hack-korea.tb_user values (1, "sooyoung32@gmail.com", "1234", "Sooyoung", 0);
